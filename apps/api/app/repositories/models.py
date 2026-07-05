@@ -78,3 +78,90 @@ class DocumentChunkModel(TimestampMixin, Base):
             postgresql_ops={"embedding_vector": "vector_cosine_ops"},
         ),
     )
+
+
+class CompanyProfileModel(TimestampMixin, Base):
+    __tablename__ = "company_profiles"
+
+    company_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    industry: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    profile_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+    competitor_links: Mapped[list["CompetitorRelationshipModel"]] = relationship(
+        back_populates="company",
+        cascade="all, delete-orphan",
+        foreign_keys="CompetitorRelationshipModel.company_id",
+    )
+
+
+class CompetitorRelationshipModel(TimestampMixin, Base):
+    __tablename__ = "competitor_relationships"
+
+    relationship_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("company_profiles.company_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    competitor_company_id: Mapped[str] = mapped_column(
+        ForeignKey("company_profiles.company_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    relationship_type: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    company: Mapped[CompanyProfileModel] = relationship(
+        back_populates="competitor_links",
+        foreign_keys=[company_id],
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_competitor_relationships_company_competitor",
+            "company_id",
+            "competitor_company_id",
+            unique=True,
+        ),
+    )
+
+
+class RiskEvidenceModel(TimestampMixin, Base):
+    __tablename__ = "risk_evidence"
+
+    evidence_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("company_profiles.company_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    chunk_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    risk_category: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    snippet: Mapped[str] = mapped_column(Text, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    extracted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TrendEvidenceModel(TimestampMixin, Base):
+    __tablename__ = "trend_evidence"
+
+    evidence_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("company_profiles.company_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    chunk_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    trend_topic: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    document_type: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    document_date: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    snippet: Mapped[str] = mapped_column(Text, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    extracted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

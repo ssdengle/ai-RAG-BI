@@ -5,6 +5,7 @@ from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI
 
+from apps.api.app.api.bi import router as bi_router
 from apps.api.app.api.documents import router as documents_router
 from apps.api.app.api.health import router as health_router
 from apps.api.app.api.qa import router as qa_router
@@ -73,6 +74,7 @@ def create_app(
     app.add_middleware(RequestContextLoggingMiddleware)
     register_exception_handlers(app)
     app.include_router(documents_router)
+    app.include_router(bi_router)
     app.include_router(health_router)
     app.include_router(qa_router)
     app.include_router(rag_router)
