@@ -47,6 +47,17 @@ docs/
 scripts/        Development and maintenance scripts
 ```
 
+## Running the Frontend
+
+The Streamlit app in `apps/web/streamlit_app/app.py` lets you upload documents, index them, and ask
+grounded questions with citations.
+
+- With Docker: `docker compose up`, then open http://localhost:8501.
+- Locally (API already running on port 8000): `streamlit run apps/web/streamlit_app/app.py`.
+  Set `API_BASE_URL` if the API is somewhere else.
+
+Indexing and question answering call OpenAI, so set `LLM_API_KEY` in `.env.example` first.
+
 ## Runtime Target
 
 The project targets Python `3.11` for modern typing support, stronger library compatibility, and a production-ready baseline.
