@@ -1,11 +1,12 @@
 from fastapi.testclient import TestClient
 
 from apps.api.app.main import create_app
-from apps.api.tests.conftest import FakeDatabaseManager, FakeRedisManager
+from apps.api.tests.conftest import FakeDatabaseManager, FakeRedisManager, build_test_settings
 
 
 def test_preview_ingestion_endpoint_returns_chunked_document() -> None:
     app = create_app(
+        settings=build_test_settings(),
         perform_startup_checks=False,
         database_manager=FakeDatabaseManager(),
         redis_manager=FakeRedisManager(),
@@ -32,6 +33,7 @@ def test_preview_ingestion_endpoint_returns_chunked_document() -> None:
 
 def test_preview_ingestion_endpoint_rejects_unsupported_file_type() -> None:
     app = create_app(
+        settings=build_test_settings(),
         perform_startup_checks=False,
         database_manager=FakeDatabaseManager(),
         redis_manager=FakeRedisManager(),

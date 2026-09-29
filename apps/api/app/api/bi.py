@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.config import get_request_settings
 from apps.api.app.core.database import get_db_session
+from apps.api.app.core.service_factory import build_question_answering_service, build_retrieval_service
 from apps.api.app.domain.bi import (
     CompanyComparisonResult,
     CompanyProfile,
@@ -65,32 +66,14 @@ def get_retrieval_service(
     request: Request,
     retrieval_repository: RetrievalRepository = Depends(get_retrieval_repository),
 ) -> RetrievalService:
-    settings = get_request_settings(request)
-    return RetrievalService(
-        retrieval_repository=retrieval_repository,
-        embedding_provider=build_embedding_provider(settings),
-        reranker=DefaultReranker(),
-        citation_selector=CitationSelectionService(),
-    )
+    return build_retrieval_service(request, retrieval_repository)
 
 
 def get_question_answering_service(
     request: Request,
     retrieval_repository: RetrievalRepository = Depends(get_retrieval_repository),
 ) -> QuestionAnsweringService:
-    settings = get_request_settings(request)
-    retrieval_service = RetrievalService(
-        retrieval_repository=retrieval_repository,
-        embedding_provider=build_embedding_provider(settings),
-        reranker=DefaultReranker(),
-        citation_selector=CitationSelectionService(),
-    )
-    return QuestionAnsweringService(
-        retrieval_service=retrieval_service,
-        context_assembly_service=ContextAssemblyService(),
-        prompt_service=GroundedPromptService(),
-        chat_provider=build_chat_provider(settings),
-    )
+    return build_question_answering_service(request, retrieval_repository)
 
 
 def get_company_profile_service(

@@ -165,3 +165,113 @@ class TrendEvidenceModel(TimestampMixin, Base):
     snippet: Mapped[str] = mapped_column(Text, nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)
     extracted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BenchmarkDatasetModel(TimestampMixin, Base):
+    __tablename__ = "benchmark_datasets"
+
+    dataset_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0")
+    dataset_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+    test_cases: Mapped[list["EvaluationTestCaseModel"]] = relationship(
+        back_populates="dataset",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class EvaluationTestCaseModel(TimestampMixin, Base):
+    __tablename__ = "evaluation_test_cases"
+
+    test_case_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(
+        ForeignKey("benchmark_datasets.dataset_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    input_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    expected_answer_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    source_documents_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    rubric_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    tags: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+
+    dataset: Mapped[BenchmarkDatasetModel] = relationship(back_populates="test_cases")
+
+
+class EvaluationRunModel(TimestampMixin, Base):
+    __tablename__ = "evaluation_runs"
+
+    run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(
+        ForeignKey("benchmark_datasets.dataset_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    config_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    baseline_run_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    llm_provider: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    llm_model: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    summary_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    results: Mapped[list["EvaluationResultModel"]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class EvaluationResultModel(TimestampMixin, Base):
+    __tablename__ = "evaluation_results"
+
+    result_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("evaluation_runs.run_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    test_case_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    test_case_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    passed: Mapped[bool] = mapped_column(nullable=False, default=False)
+    overall_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    scorer_results_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    failure_modes_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    actual_output_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    latency_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    token_usage_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    run: Mapped[EvaluationRunModel] = relationship(back_populates="results")
+
+
+class WorkflowRunModel(TimestampMixin, Base):
+    __tablename__ = "workflow_runs"
+
+    workflow_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    user_request: Mapped[str] = mapped_column(Text, nullable=False)
+    company_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    topic: Mapped[str] = mapped_column(String(500), nullable=False)
+    plan: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    completed_steps: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    failed_steps: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    state_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    trace_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    human_review_required: Mapped[bool] = mapped_column(nullable=False, default=False)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_retries: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    final_output: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    errors: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

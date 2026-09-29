@@ -7,11 +7,16 @@ import pytest
 
 from apps.api.app.core.config import (
     AppSettings,
+    AuthSettings,
+    CacheSettings,
     DatabaseSettings,
     LLMSettings,
     LoggingSettings,
+    MetricsSettings,
     RedisSettings,
+    SecuritySettings,
     Settings,
+    TelemetrySettings,
 )
 from apps.api.app.core.errors import InfrastructureError
 from apps.api.app.domain.documents import IndexingStatus, PersistedDocument, PersistedDocumentChunk
@@ -31,6 +36,13 @@ class FakeDatabaseManager:
     async def check_connection(self) -> None:
         if self.health_error is not None:
             raise self.health_error
+
+    async def get_session(self):
+        async def _generator():
+            yield None
+
+        async for session in _generator():
+            yield session
 
     async def dispose(self) -> None:
         self.disposed = True
@@ -88,6 +100,15 @@ def build_test_settings() -> Settings:
             embedding_batch_size=32,
             embedding_max_retries=3,
         ),
+        auth=AuthSettings(enabled=False),
+        security=SecuritySettings(
+            rate_limit_enabled=False,
+            block_prompt_injection=False,
+            security_headers_enabled=True,
+        ),
+        cache=CacheSettings(enabled=False),
+        metrics=MetricsSettings(enabled=False),
+        telemetry=TelemetrySettings(enabled=False),
     )
 
 

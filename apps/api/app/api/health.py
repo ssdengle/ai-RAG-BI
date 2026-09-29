@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from apps.api.app.core.config import get_request_settings
 from apps.api.app.core.errors import InfrastructureError
+from apps.api.app.core.metrics import set_health_metric
 
 
 router = APIRouter(prefix="/v1/health", tags=["health"])
@@ -32,14 +33,18 @@ async def readiness(request: Request) -> JSONResponse:
 
     try:
         await database.check_connection()
+        set_health_metric(component="postgresql", healthy=True)
     except InfrastructureError as exc:
         checks["postgresql"] = {"status": "error", "details": exc.details or exc.message}
+        set_health_metric(component="postgresql", healthy=False)
         overall_status = status.HTTP_503_SERVICE_UNAVAILABLE
 
     try:
         await redis.ping()
+        set_health_metric(component="redis", healthy=True)
     except InfrastructureError as exc:
         checks["redis"] = {"status": "error", "details": exc.details or exc.message}
+        set_health_metric(component="redis", healthy=False)
         overall_status = status.HTTP_503_SERVICE_UNAVAILABLE
 
     payload = {

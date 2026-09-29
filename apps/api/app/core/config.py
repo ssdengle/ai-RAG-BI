@@ -59,6 +59,15 @@ class DatabaseSettings(_SectionSettings):
             f"@{self.host}:{self.port}/{self.database}"
         )
 
+    @property
+    def sync_url(self) -> str:
+        """Synchronous driver URL for Alembic migrations."""
+        password = self.password.get_secret_value()
+        return (
+            f"postgresql+psycopg://{self.username}:{password}"
+            f"@{self.host}:{self.port}/{self.database}"
+        )
+
 
 class RedisSettings(_SectionSettings):
     host: str = Field(default="redis", validation_alias="REDIS_HOST")
@@ -95,21 +104,85 @@ class LLMSettings(_SectionSettings):
     embedding_max_retries: int = Field(default=3, validation_alias="LLM_EMBEDDING_MAX_RETRIES")
 
 
+class AuthSettings(_SectionSettings):
+    enabled: bool = Field(default=True, validation_alias="AUTH_ENABLED")
+    jwt_secret: SecretStr = Field(default=SecretStr("change-me-jwt-secret"), validation_alias="AUTH_JWT_SECRET")
+    jwt_algorithm: str = Field(default="HS256", validation_alias="AUTH_JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(default=60, validation_alias="AUTH_ACCESS_TOKEN_EXPIRE_MINUTES")
+    refresh_token_expire_days: int = Field(default=7, validation_alias="AUTH_REFRESH_TOKEN_EXPIRE_DAYS")
+    users: str = Field(
+        default="admin:change-me:admin,analyst:change-me:analyst,reviewer:change-me:reviewer,viewer:change-me:viewer",
+        validation_alias="AUTH_USERS",
+    )
+    api_keys: str = Field(
+        default="admin-key:admin:admin,analyst-key:analyst:analyst,reviewer-key:reviewer:reviewer,viewer-key:viewer:viewer",
+        validation_alias="AUTH_API_KEYS",
+    )
+
+
+class SecuritySettings(_SectionSettings):
+    cors_origins: str = Field(default="*", validation_alias="SECURITY_CORS_ORIGINS")
+    cors_allow_credentials: bool = Field(default=True, validation_alias="SECURITY_CORS_ALLOW_CREDENTIALS")
+    security_headers_enabled: bool = Field(default=True, validation_alias="SECURITY_HEADERS_ENABLED")
+    hsts_enabled: bool = Field(default=False, validation_alias="SECURITY_HSTS_ENABLED")
+    hsts_max_age_seconds: int = Field(default=31536000, validation_alias="SECURITY_HSTS_MAX_AGE_SECONDS")
+    rate_limit_enabled: bool = Field(default=True, validation_alias="SECURITY_RATE_LIMIT_ENABLED")
+    rate_limit_requests: int = Field(default=120, validation_alias="SECURITY_RATE_LIMIT_REQUESTS")
+    rate_limit_window_seconds: int = Field(default=60, validation_alias="SECURITY_RATE_LIMIT_WINDOW_SECONDS")
+    max_request_body_bytes: int = Field(default=1_048_576, validation_alias="SECURITY_MAX_REQUEST_BODY_BYTES")
+    block_prompt_injection: bool = Field(default=True, validation_alias="SECURITY_BLOCK_PROMPT_INJECTION")
+
+
+class CacheSettings(_SectionSettings):
+    enabled: bool = Field(default=True, validation_alias="CACHE_ENABLED")
+    retrieval_ttl_seconds: int = Field(default=900, validation_alias="CACHE_RETRIEVAL_TTL_SECONDS")
+    embedding_ttl_seconds: int = Field(default=86400, validation_alias="CACHE_EMBEDDING_TTL_SECONDS")
+    qa_ttl_seconds: int = Field(default=1800, validation_alias="CACHE_QA_TTL_SECONDS")
+    workflow_ttl_seconds: int = Field(default=3600, validation_alias="CACHE_WORKFLOW_TTL_SECONDS")
+
+
+class MetricsSettings(_SectionSettings):
+    enabled: bool = Field(default=True, validation_alias="METRICS_ENABLED")
+    path: str = Field(default="/metrics", validation_alias="METRICS_PATH")
+
+
+class TelemetrySettings(_SectionSettings):
+    enabled: bool = Field(default=False, validation_alias="OTEL_ENABLED")
+    service_name: str = Field(default="ai-bi-platform-api", validation_alias="OTEL_SERVICE_NAME")
+    service_version: str = Field(default="0.1.0", validation_alias="OTEL_SERVICE_VERSION")
+    environment: str = Field(default="development", validation_alias="OTEL_ENVIRONMENT")
+    console_exporter: bool = Field(default=False, validation_alias="OTEL_CONSOLE_EXPORTER")
+
+
 class Settings(BaseModel):
     app: AppSettings
     database: DatabaseSettings
     redis: RedisSettings
     logging: LoggingSettings
     llm: LLMSettings
+    auth: AuthSettings
+    security: SecuritySettings
+    cache: CacheSettings
+    metrics: MetricsSettings
+    telemetry: TelemetrySettings
 
 
 def load_settings(*, env_file: Union[str, Path, None] = DEFAULT_ENV_FILE) -> Settings:
+    app_settings = AppSettings(_env_file=env_file)
+    auth_settings = AuthSettings(_env_file=env_file)
+    if app_settings.environment == "test":
+        auth_settings = auth_settings.model_copy(update={"enabled": False})
     return Settings(
-        app=AppSettings(_env_file=env_file),
+        app=app_settings,
         database=DatabaseSettings(_env_file=env_file),
         redis=RedisSettings(_env_file=env_file),
         logging=LoggingSettings(_env_file=env_file),
         llm=LLMSettings(_env_file=env_file),
+        auth=auth_settings,
+        security=SecuritySettings(_env_file=env_file),
+        cache=CacheSettings(_env_file=env_file),
+        metrics=MetricsSettings(_env_file=env_file),
+        telemetry=TelemetrySettings(_env_file=env_file),
     )
 
 

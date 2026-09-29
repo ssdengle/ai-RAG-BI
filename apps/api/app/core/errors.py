@@ -61,6 +61,16 @@ class ConfigurationError(ApplicationError):
     default_status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
+class UnauthorizedError(ApplicationError):
+    default_code = "unauthorized"
+    default_status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class ForbiddenError(ApplicationError):
+    default_code = "forbidden"
+    default_status_code = status.HTTP_403_FORBIDDEN
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     logger = get_logger("api.errors")
 
